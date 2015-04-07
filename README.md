@@ -4,7 +4,8 @@ Kafka-node
 [![NPM](https://nodei.co/npm/kafka-node.png)](https://nodei.co/npm/kafka-node/)
 [![NPM](https://nodei.co/npm-dl/kafka-node.png?height=3)](https://nodei.co/npm/kafka-node/)
 
-Kafka-node is a Node.js client with Zookeeper integration for Apache Kafka 0.8.1 and later.
+Kafka-node is a Node.js client with Zookeeper integration for Apache Kafka. It only supports the latest version of Kafka 0.8 which is still under development, so this module
+is _not production ready_ so far.
 
 The Zookeeper integration does the following jobs:
 
@@ -12,7 +13,7 @@ The Zookeeper integration does the following jobs:
 * Watches broker state, if broker changes, the client will refresh broker and topic metadata stored in the client
 
 # Install Kafka
-Follow the [instructions](http://kafka.apache.org/documentation.html#quickstart) on the Kafka wiki to build Kafka 0.8 and get a test broker up and running.
+Follow the [instructions](https://cwiki.apache.org/KAFKA/kafka-08-quick-start.html) on the Kafka wiki to build Kafka 0.8 and get a test broker up and running.
 
 # API
 ## Client
@@ -27,9 +28,8 @@ Closes the connection to Zookeeper and the brokers so that the node process can 
 * `cb`: **Function**, the callback
 
 ## Producer
-### Producer(client, [options])
+### Producer(client)
 * `client`: client which keeps a connection with the Kafka server.
-* `options`: set `requireAcks` and `ackTimeoutMs` for producer, the default value is `{requireAcks: 1, ackTimeoutMs: 100}`
 
 ``` js
 var kafka = require('kafka-node'),
@@ -44,7 +44,7 @@ var kafka = require('kafka-node'),
 ``` js
 {
    topic: 'topicName',
-   messages: ['message body'],// multi messages should be a array, single message can be just a string or a KeyedMessage instance
+   messages: ['message body'],// multi messages should be a array, single message can be just a string
    partition: 0, //default 0
    attributes: 2, // default: 0
 }
@@ -63,13 +63,11 @@ Example:
 ``` js
 var kafka = require('kafka-node'),
     Producer = kafka.Producer,
-    KeyedMessage = kafka.KeyedMessage,
     client = new kafka.Client(),
     producer = new Producer(client),
-    km = new KeyedMessage('key', 'message'),
     payloads = [
         { topic: 'topic1', messages: 'hi', partition: 0 },
-        { topic: 'topic2', messages: ['hello', 'world', km] }
+        { topic: 'topic2', messages: ['hello', 'world'] }
     ];
 producer.on('ready', function () {
     producer.send(payloads, function (err, data) {
@@ -105,9 +103,8 @@ producer.createTopics(['t'], function (err, data) {});// Simply omit 2nd arg
 
 
 ## HighLevelProducer
-### HighLevelProducer(client, [options])
+### HighLevelProducer(client)
 * `client`: client which keeps a connection with the Kafka server. Round-robins produce requests to the available topic partitions
-* `options`: set `requireAcks` and `ackTimeoutMs` for producer, the default value is `{requireAcks: 1, ackTimeoutMs: 100}`
 
 ``` js
 var kafka = require('kafka-node'),
@@ -136,71 +133,6 @@ var kafka = require('kafka-node'),
     HighLevelProducer = kafka.HighLevelProducer,
     client = new kafka.Client(),
     producer = new HighLevelProducer(client),
-    payloads = [
-        { topic: 'topic1', messages: 'hi' },
-        { topic: 'topic2', messages: ['hello', 'world'] }
-    ];
-producer.on('ready', function () {
-    producer.send(payloads, function (err, data) {
-        console.log(data);
-    });
-});
-```
-
-### createTopics(topics, async, cb)
-This method is used to create topics on the Kafka server. It only work when `auto.create.topics.enable`, on the Kafka server, is set to true. Our client simply sends a metadata request to the server which will auto create topics. When `async` is set to false, this method does not return until all topics are created, otherwise it returns immediately.
-
-* `topics`: **Array**,array of topics
-* `async`: **Boolean**,async or sync
-* `cb`: **Function**,the callback
-
-Example:
-
-``` js
-var kafka = require('kafka-node'),
-    HighLevelProducer = kafka.HighLevelProducer,
-    client = new kafka.Client(),
-    producer = new HighLevelProducer(client);
-// Create topics sync
-producer.createTopics(['t','t1'], false, function (err, data) {
-    console.log(data);
-});
-// Create topics async
-producer.createTopics(['t'], true, function (err, data) {});
-producer.createTopics(['t'], function (err, data) {});// Simply omit 2nd arg
-```
-
-
-## HighLevelProducer
-### HighLevelConsumer(client)
-* `client`: client which keeps a connection with the Kafka server. Round-robins produce requests to the available topic partitions
-
-``` js
-var kafka = require('kafka-node'),
-    HighLevelProducer = kafka.HighLevelProducer,
-    client = new kafka.Client(),
-    producer = new HighLevelProducer(client);
-```
-
-### send(payloads, cb)
-* `payloads`: **Array**,array of `ProduceRequest`, `ProduceRequest` is a JSON object like:
-
-``` js
-{
-   topic: 'topicName',
-   messages: ['message body'],// multi messages should be a array, single message can be just a string
-}
-```
-
-* `cb`: **Function**, the callback
-
-Example:
-
-``` js
-var kafka = require('kafka-node'),
-    Producer = kafka.Producer,
-    client = new kafka.Client(),
-    producer = new Producer(client),
     payloads = [
         { topic: 'topic1', messages: 'hi' },
         { topic: 'topic2', messages: ['hello', 'world'] }
@@ -532,130 +464,6 @@ consumer.close(true, cb);
 consumer.close(cb); //force is disabled
 ```
 
-## HighLevelConsumer
-### HighLevelConsumer(client, payloads, options)
-* `client`: client which keeps a connection with the Kafka server.
-* `payloads`: **Array**,array of `FetchRequest`, `FetchRequest` is a JSON object like:
-
-``` js
-{
-   topic: 'topicName'
-}
-```
-
-* `options`: options for consumer,
-
-```js
-{
-    groupId: 'kafka-node-group',//consumer group id, deafult `kafka-node-group`
-    // Auto commit config
-    autoCommitIntervalMs: 5000,
-    // The max wait time is the maximum amount of time in milliseconds to block waiting if insufficient data is available at the time the request is issued, default 100ms
-    fetchMaxWaitMs: 100,
-    // This is the minimum number of bytes of messages that must be available to give a response, default 1 byte
-    fetchMinBytes: 1,
-    // The maximum bytes to include in the message set for this partition. This helps bound the size of the response.
-    fetchMaxBytes: 1024 * 10,
-    // If set true, consumer will fetch message from the given offset in the payloads
-    fromOffset: false
-}
-```
-Example:
-
-``` js
-var kafka = require('kafka-node'),
-    Consumer = kafka.Consumer,
-    client = new kafka.Client(),
-    consumer = new Consumer(
-        client,
-        [
-            { topic: 't' }, { topic: 't1' }
-        ],
-        {
-            groupId: 'my-group'
-        }
-    );
-```
-
-### on('message', onMessage);
-By default, we will consume messages from the last committed offset of the current group
-
-* `onMessage`: **Function**, callback when new message comes
-
-Example:
-
-``` js
-consumer.on('message', function (message) {
-    console.log(message);
-});
-```
-
-### on('error', function (err) {})
-
-
-### on('offsetOutOfRange', function (err) {})
-
-
-### addTopics(topics, cb)
-Add topics to current consumer, if any topic to be added not exists, return error
-* `topics`: **Array**, array of topics to add
-* `cb`: **Function**,the callback
-
-Example:
-
-``` js
-consumer.addTopics(['t1', 't2'], function (err, added) {
-});
-```
-
-### removeTopics(topics, cb)
-* `topics`: **Array**, array of topics to remove
-* `cb`: **Function**, the callback
-
-Example:
-
-``` js
-consumer.removeTopics(['t1', 't2'], function (err, removed) {
-});
-```
-
-### commit(cb)
-Commit offset of the current topics manually, this method should be called when a consumer leaves
-
-* `cb`: **Function**, the callback
-
-Example:
-
-``` js
-consumer.commit(function(err, data) {
-});
-```
-
-### setOffset(topic, partition, offset)
-Set offset of the given topic
-
-* `topic`: **String**
-
-* `partition`: **Number**
-
-* `offset`: **Number**
-
-Example:
-
-``` js
-consumer.setOffset('topic', 0, 0);
-```
-
-### close(force, cb)
-* `force`: **Boolean**, if set true, it force commit current offset before close, default false
-
-Example
-
-```js
-consumer.close(true, cb);
-consuemr.close(cb); //force is force
-```
-
 ## Offset
 ### Offset(client)
 * `client`: client which keeps a connection with the Kafka server.
@@ -751,7 +559,7 @@ var kafka = require('kafka-node'),
 * Compression: gzip & snappy (√)
 
 # LICENSE - "MIT"
-Copyright (c) 2015 Sohu.com
+Copyright (c) 2013 Sohu.com
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
